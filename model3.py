@@ -66,14 +66,14 @@ class MHA(nn.Module):
         q = self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
         k = self.kw(k).reshape(batch, kl, self.n_head, self.d_head).transpose(1, 2)
         v = self.vw(v).reshape(batch, vl, self.n_head, self.d_head).transpose(1, 2)
-        print("self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)")
+        print("\nself.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)")
         print("[batch, n_head, seq_len, d_head]")
         print(f"q: {q.size()}")
         
         # [batch, n_head, seq_len, d_head] @ [batch, n_head, d_head, seq_len] 
         # -> [batch, n_head, seq_len, seq_len]
         attn_score = torch.matmul(q * self.scale, k.transpose(-2, -1))
-        print("torch.matmul(q * self.scale, k.transpose(-2, -1))")
+        print("\ntorch.matmul(q * self.scale, k.transpose(-2, -1))")
         print("[batch, n_head, seq_len, seq_len]")
         print(f"attn_score: {attn_score.size()}")
         
@@ -92,19 +92,19 @@ class MHA(nn.Module):
         # [batch, n_head, seq_len, seq_len] -> [batch, n_head, seq_len, seq_len]
         # Softmax along the last dimension to get attention weights
         attn = torch.softmax(attn_score, dim=-1)
-        print("torch.softmax(attn_score, dim=-1)")
+        print("\ntorch.softmax(attn_score, dim=-1)")
         print("[batch, n_head, seq_len, seq_len]")
         print(f"attn: {attn.size()}")
         
         """it's softmax, so no scale
         """
         out = torch.matmul(attn, v)
-        print("torch.matmul(attn, v)")
+        print("\ntorch.matmul(attn, v)")
         print("[batch, n_head, seq_len, d_head]")
         print(f"out: {out.size()}")
         # transpose 1, 2, reshape
         out = out.transpose(1, 2).reshape(batch, ql, self.d_model)
-        print("out.transpose(1, 2).reshape(batch, ql, self.d_model)")
+        print("\nout.transpose(1, 2).reshape(batch, ql, self.d_model)")
         print("[batch, seq_len, d_model]")
         print(f"out: {out.size()}")
         
@@ -272,19 +272,24 @@ if __name__ == "__main__":
     ==== MHA ====
     batch, seq, dim
     q: torch.Size([2, 5, 32])
+
     self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
     [batch, n_head, seq_len, d_head]
     q: torch.Size([2, 2, 5, 16])
+
     torch.matmul(q * self.scale, k.transpose(-2, -1))
     [batch, n_head, seq_len, seq_len]
     attn_score: torch.Size([2, 2, 5, 5])
     mask: torch.Size([2, 1, 1, 5])
+
     torch.softmax(attn_score, dim=-1)
     [batch, n_head, seq_len, seq_len]
     attn: torch.Size([2, 2, 5, 5])
+
     torch.matmul(attn, v)
     [batch, n_head, seq_len, d_head]
     out: torch.Size([2, 2, 5, 16])
+
     out.transpose(1, 2).reshape(batch, ql, self.d_model)
     [batch, seq_len, d_model]
     out: torch.Size([2, 5, 32])
@@ -294,19 +299,24 @@ if __name__ == "__main__":
     ==== MHA ====
     batch, seq, dim
     q: torch.Size([2, 3, 32])
+
     self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
     [batch, n_head, seq_len, d_head]
     q: torch.Size([2, 2, 3, 16])
+
     torch.matmul(q * self.scale, k.transpose(-2, -1))
     [batch, n_head, seq_len, seq_len]
     attn_score: torch.Size([2, 2, 3, 3])
     mask: torch.Size([1, 1, 3, 3])
+
     torch.softmax(attn_score, dim=-1)
     [batch, n_head, seq_len, seq_len]
     attn: torch.Size([2, 2, 3, 3])
+
     torch.matmul(attn, v)
     [batch, n_head, seq_len, d_head]
     out: torch.Size([2, 2, 3, 16])
+
     out.transpose(1, 2).reshape(batch, ql, self.d_model)
     [batch, seq_len, d_model]
     out: torch.Size([2, 3, 32])
@@ -314,19 +324,24 @@ if __name__ == "__main__":
     ==== MHA ====
     batch, seq, dim
     q: torch.Size([2, 3, 32])
+
     self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
     [batch, n_head, seq_len, d_head]
     q: torch.Size([2, 2, 3, 16])
+
     torch.matmul(q * self.scale, k.transpose(-2, -1))
     [batch, n_head, seq_len, seq_len]
     attn_score: torch.Size([2, 2, 3, 3])
     mask: torch.Size([2, 1, 1, 3])
+
     torch.softmax(attn_score, dim=-1)
     [batch, n_head, seq_len, seq_len]
     attn: torch.Size([2, 2, 3, 3])
+
     torch.matmul(attn, v)
     [batch, n_head, seq_len, d_head]
     out: torch.Size([2, 2, 3, 16])
+
     out.transpose(1, 2).reshape(batch, ql, self.d_model)
     [batch, seq_len, d_model]
     out: torch.Size([2, 3, 32])
@@ -334,19 +349,24 @@ if __name__ == "__main__":
     ==== MHA ====
     batch, seq, dim
     q: torch.Size([2, 3, 32])
+
     self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
     [batch, n_head, seq_len, d_head]
     q: torch.Size([2, 2, 3, 16])
+
     torch.matmul(q * self.scale, k.transpose(-2, -1))
     [batch, n_head, seq_len, seq_len]
     attn_score: torch.Size([2, 2, 3, 5])
     mask: torch.Size([2, 1, 1, 5])
+
     torch.softmax(attn_score, dim=-1)
     [batch, n_head, seq_len, seq_len]
     attn: torch.Size([2, 2, 3, 5])
+
     torch.matmul(attn, v)
     [batch, n_head, seq_len, d_head]
     out: torch.Size([2, 2, 3, 16])
+
     out.transpose(1, 2).reshape(batch, ql, self.d_model)
     [batch, seq_len, d_model]
     out: torch.Size([2, 3, 32])
@@ -356,8 +376,8 @@ if __name__ == "__main__":
     x: torch.Size([2, 5])
     y: torch.Size([2, 3])
     out: torch.Size([2, 3, 50])
-    argmax: tensor([[13, 16, 48],
-            [42, 13, 16]])
+    argmax: tensor([[42, 16, 46],
+            [42, 42, 10]])
     """
     # PositionEncoding(512,100)
     att = Transformer(
