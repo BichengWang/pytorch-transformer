@@ -57,7 +57,7 @@ class MHA(nn.Module):
         ql, kl, vl = seq, k.size(1), v.size(1)
         
         # Linear projection and reshape for multi-head attention
-        # [batch, seq_len, d_model] 
+        # [batch, seq_len, d_model]
         # -> [batch, seq_len, n_head, d_head]
         # -> [batch, n_head, seq_len, d_head]
         q = self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
@@ -243,9 +243,46 @@ class Transformer(nn.Module):
 
 
 if __name__ == "__main__":
+    """
+    src_pad_mask: 4, torch.Size([4, 1, 1, 5])
+    tgt_pad_mask: 4, torch.Size([4, 1, 1, 1])
+    tgt_causal_mask: 4, torch.Size([1, 1, 1, 1])
+    q: torch.Size([4, 2, 5, 4])
+    attn_score: torch.Size([4, 2, 5, 5])
+    mask: torch.Size([4, 1, 1, 5])
+    attn: torch.Size([4, 2, 5, 5])
+    out: torch.Size([4, 2, 5, 4])
+    out: torch.Size([4, 5, 8])
+    q: torch.Size([4, 2, 1, 4])
+    attn_score: torch.Size([4, 2, 1, 1])
+    mask: torch.Size([1, 1, 1, 1])
+    attn: torch.Size([4, 2, 1, 1])
+    out: torch.Size([4, 2, 1, 4])
+    out: torch.Size([4, 1, 8])
+    q: torch.Size([4, 2, 1, 4])
+    attn_score: torch.Size([4, 2, 1, 1])
+    mask: torch.Size([4, 1, 1, 1])
+    attn: torch.Size([4, 2, 1, 1])
+    out: torch.Size([4, 2, 1, 4])
+    out: torch.Size([4, 1, 8])
+    q: torch.Size([4, 2, 1, 4])
+    attn_score: torch.Size([4, 2, 1, 5])
+    mask: torch.Size([4, 1, 1, 5])
+    attn: torch.Size([4, 2, 1, 5])
+    out: torch.Size([4, 2, 1, 4])
+    out: torch.Size([4, 1, 8])
+    torch.Size([4, 1, 50])
+    x: torch.Size([4, 5])
+    y: torch.Size([4, 1])
+    out: torch.Size([4, 1, 50])
+    argmax: tensor([[24],
+            [45],
+            [ 7],
+            [ 7]])
+    """
     # PositionEncoding(512,100)
     att = Transformer(
-        src_vocab=100, tgt_vocab=50, pad_idx=0, d_model=8, n_layer=2, n_head=2, 
+        src_vocab=100, tgt_vocab=50, pad_idx=0, d_model=8, n_layer=1, n_head=2, 
         d_ff=4, dropout=0.1)
     # batch, seq
     x = torch.randint(0, 100, (4, 5))
