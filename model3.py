@@ -51,7 +51,10 @@ class MHA(nn.Module):
         self.scale = self.d_head ** -0.5
         
     def forward(self, q, k, v, mask=None):
+        print("\n==== MHA ====")
         batch, seq, dim = q.size()
+        print("batch, seq, dim")
+        print(f"q: {q.size()}")
         if dim != self.d_model:
             raise ValueError("dim not match")
         ql, kl, vl = seq, k.size(1), v.size(1)
@@ -63,11 +66,15 @@ class MHA(nn.Module):
         q = self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
         k = self.kw(k).reshape(batch, kl, self.n_head, self.d_head).transpose(1, 2)
         v = self.vw(v).reshape(batch, vl, self.n_head, self.d_head).transpose(1, 2)
+        print("self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)")
+        print("[batch, n_head, seq_len, d_head]")
         print(f"q: {q.size()}")
         
         # [batch, n_head, seq_len, d_head] @ [batch, n_head, d_head, seq_len] 
         # -> [batch, n_head, seq_len, seq_len]
         attn_score = torch.matmul(q * self.scale, k.transpose(-2, -1))
+        print("torch.matmul(q * self.scale, k.transpose(-2, -1))")
+        print("[batch, n_head, seq_len, seq_len]")
         print(f"attn_score: {attn_score.size()}")
         
         if mask is not None:
@@ -85,14 +92,20 @@ class MHA(nn.Module):
         # [batch, n_head, seq_len, seq_len] -> [batch, n_head, seq_len, seq_len]
         # Softmax along the last dimension to get attention weights
         attn = torch.softmax(attn_score, dim=-1)
+        print("torch.softmax(attn_score, dim=-1)")
+        print("[batch, n_head, seq_len, seq_len]")
         print(f"attn: {attn.size()}")
         
         """it's softmax, so no scale
         """
         out = torch.matmul(attn, v)
+        print("torch.matmul(attn, v)")
+        print("[batch, n_head, seq_len, d_head]")
         print(f"out: {out.size()}")
         # transpose 1, 2, reshape
         out = out.transpose(1, 2).reshape(batch, ql, self.d_model)
+        print("out.transpose(1, 2).reshape(batch, ql, self.d_model)")
+        print("[batch, seq_len, d_model]")
         print(f"out: {out.size()}")
         
         # Final projection
@@ -193,10 +206,14 @@ class Transformer(nn.Module):
         self._init_parameters()
     
     def forward(self, src, tgt):
+        print("\n==== start ====")
         src_pad_mask = self._pad_mask(src)
+        print("src_pad_mask: [batch_size, 1, 1, seq_len]")
         print(f"src_pad_mask: {src_pad_mask.dim()}, {src_pad_mask.size()}")
+        print("tgt_pad_mask: [batch_size, 1, 1, seq_len]")
         tgt_pad_mask = self._pad_mask(tgt)
         print(f"tgt_pad_mask: {tgt_pad_mask.dim()}, {tgt_pad_mask.size()}")
+        print("tgt_causal_mask: [1, 1, seq, seq]")
         tgt_causal_mask = self._causal_mask(tgt)
         print(f"tgt_causal_mask: {tgt_causal_mask.dim()}, {tgt_causal_mask.size()}")
         
@@ -205,9 +222,12 @@ class Transformer(nn.Module):
         tgt = self.tgt_emb(tgt) * math.sqrt(self.d_model)
         tgt = self.pos_encoding(tgt)
         
+        print("\n==== encoder ====")
         encoder_out = self.encoder(src, src_pad_mask)
+        print("\n==== decoder ====")
         decoder_out = self.decoder(
             tgt, encoder_out, tgt_causal_mask, tgt_pad_mask, src_pad_mask)
+        print("\n==== output ====")
         return self.ow(decoder_out)
     
     def _init_parameters(self):
@@ -223,70 +243,130 @@ class Transformer(nn.Module):
         #  [0, 0, 0, 0]]    # Cannot attend to any tokens
         seq = x.size(1)
         mask = torch.triu(torch.ones(seq, seq), diagonal=1).bool()
+        # [1, 1, seq, seq]
         return mask.unsqueeze(0).unsqueeze(0)
     
     def _pad_mask(self, x):
         # Example of padding tokens in a sequence:
         # Original sequence: [5, 2, 8, 1]
         # Padded sequence: [5, 2, 8, 1, 0, 0, 0]  # where 0 is the pad_idx
-        # The padding mask would be: [0, 0, 0, 0, 1, 1, 1]  # 1 indicates padding position
-        # Padding tokens are special tokens used to make all sequences in a batch the same length
-        # They are typically represented by a special index (pad_idx) in the vocabulary
-        # For example, if pad_idx = 0, then all padding tokens in the sequence will be 0
-        # This is necessary because neural networks expect fixed-size inputs
-        # The padding mask ensures the model doesn't attend to these padding tokens
-        # pad_idx is used to mark padding tokens in sequences
-        # pad_mask masks out padding tokens to prevent attention to them
-        # x: [batch, seq, dim], pad_idx [dim]
-        # [batch, seq] -> [batch_size, 1, seq_len]
+        # x: [batch, seq], pad_idx [1]
+        # [batch, seq] -> [batch_size, 1, 1, seq_len]
         return (x == self.pad_idx).unsqueeze(1).unsqueeze(1)
 
 
 if __name__ == "__main__":
     """
-    src_pad_mask: 4, torch.Size([4, 1, 1, 5])
-    tgt_pad_mask: 4, torch.Size([4, 1, 1, 1])
-    tgt_causal_mask: 4, torch.Size([1, 1, 1, 1])
-    q: torch.Size([4, 2, 5, 4])
-    attn_score: torch.Size([4, 2, 5, 5])
-    mask: torch.Size([4, 1, 1, 5])
-    attn: torch.Size([4, 2, 5, 5])
-    out: torch.Size([4, 2, 5, 4])
-    out: torch.Size([4, 5, 8])
-    q: torch.Size([4, 2, 1, 4])
-    attn_score: torch.Size([4, 2, 1, 1])
-    mask: torch.Size([1, 1, 1, 1])
-    attn: torch.Size([4, 2, 1, 1])
-    out: torch.Size([4, 2, 1, 4])
-    out: torch.Size([4, 1, 8])
-    q: torch.Size([4, 2, 1, 4])
-    attn_score: torch.Size([4, 2, 1, 1])
-    mask: torch.Size([4, 1, 1, 1])
-    attn: torch.Size([4, 2, 1, 1])
-    out: torch.Size([4, 2, 1, 4])
-    out: torch.Size([4, 1, 8])
-    q: torch.Size([4, 2, 1, 4])
-    attn_score: torch.Size([4, 2, 1, 5])
-    mask: torch.Size([4, 1, 1, 5])
-    attn: torch.Size([4, 2, 1, 5])
-    out: torch.Size([4, 2, 1, 4])
-    out: torch.Size([4, 1, 8])
-    torch.Size([4, 1, 50])
-    x: torch.Size([4, 5])
-    y: torch.Size([4, 1])
-    out: torch.Size([4, 1, 50])
-    argmax: tensor([[24],
-            [45],
-            [ 7],
-            [ 7]])
+    batch, seq: (2, 5), (2, 3)
+
+    ==== start ====
+    src_pad_mask: [batch_size, 1, 1, seq_len]
+    src_pad_mask: 4, torch.Size([2, 1, 1, 5])
+    tgt_pad_mask: [batch_size, 1, 1, seq_len]
+    tgt_pad_mask: 4, torch.Size([2, 1, 1, 3])
+    tgt_causal_mask: [1, 1, seq, seq]
+    tgt_causal_mask: 4, torch.Size([1, 1, 3, 3])
+
+    ==== encoder ====
+
+    ==== MHA ====
+    batch, seq, dim
+    q: torch.Size([2, 5, 32])
+    self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
+    [batch, n_head, seq_len, d_head]
+    q: torch.Size([2, 2, 5, 16])
+    torch.matmul(q * self.scale, k.transpose(-2, -1))
+    [batch, n_head, seq_len, seq_len]
+    attn_score: torch.Size([2, 2, 5, 5])
+    mask: torch.Size([2, 1, 1, 5])
+    torch.softmax(attn_score, dim=-1)
+    [batch, n_head, seq_len, seq_len]
+    attn: torch.Size([2, 2, 5, 5])
+    torch.matmul(attn, v)
+    [batch, n_head, seq_len, d_head]
+    out: torch.Size([2, 2, 5, 16])
+    out.transpose(1, 2).reshape(batch, ql, self.d_model)
+    [batch, seq_len, d_model]
+    out: torch.Size([2, 5, 32])
+
+    ==== decoder ====
+
+    ==== MHA ====
+    batch, seq, dim
+    q: torch.Size([2, 3, 32])
+    self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
+    [batch, n_head, seq_len, d_head]
+    q: torch.Size([2, 2, 3, 16])
+    torch.matmul(q * self.scale, k.transpose(-2, -1))
+    [batch, n_head, seq_len, seq_len]
+    attn_score: torch.Size([2, 2, 3, 3])
+    mask: torch.Size([1, 1, 3, 3])
+    torch.softmax(attn_score, dim=-1)
+    [batch, n_head, seq_len, seq_len]
+    attn: torch.Size([2, 2, 3, 3])
+    torch.matmul(attn, v)
+    [batch, n_head, seq_len, d_head]
+    out: torch.Size([2, 2, 3, 16])
+    out.transpose(1, 2).reshape(batch, ql, self.d_model)
+    [batch, seq_len, d_model]
+    out: torch.Size([2, 3, 32])
+
+    ==== MHA ====
+    batch, seq, dim
+    q: torch.Size([2, 3, 32])
+    self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
+    [batch, n_head, seq_len, d_head]
+    q: torch.Size([2, 2, 3, 16])
+    torch.matmul(q * self.scale, k.transpose(-2, -1))
+    [batch, n_head, seq_len, seq_len]
+    attn_score: torch.Size([2, 2, 3, 3])
+    mask: torch.Size([2, 1, 1, 3])
+    torch.softmax(attn_score, dim=-1)
+    [batch, n_head, seq_len, seq_len]
+    attn: torch.Size([2, 2, 3, 3])
+    torch.matmul(attn, v)
+    [batch, n_head, seq_len, d_head]
+    out: torch.Size([2, 2, 3, 16])
+    out.transpose(1, 2).reshape(batch, ql, self.d_model)
+    [batch, seq_len, d_model]
+    out: torch.Size([2, 3, 32])
+
+    ==== MHA ====
+    batch, seq, dim
+    q: torch.Size([2, 3, 32])
+    self.qw(q).reshape(batch, ql, self.n_head, self.d_head).transpose(1, 2)
+    [batch, n_head, seq_len, d_head]
+    q: torch.Size([2, 2, 3, 16])
+    torch.matmul(q * self.scale, k.transpose(-2, -1))
+    [batch, n_head, seq_len, seq_len]
+    attn_score: torch.Size([2, 2, 3, 5])
+    mask: torch.Size([2, 1, 1, 5])
+    torch.softmax(attn_score, dim=-1)
+    [batch, n_head, seq_len, seq_len]
+    attn: torch.Size([2, 2, 3, 5])
+    torch.matmul(attn, v)
+    [batch, n_head, seq_len, d_head]
+    out: torch.Size([2, 2, 3, 16])
+    out.transpose(1, 2).reshape(batch, ql, self.d_model)
+    [batch, seq_len, d_model]
+    out: torch.Size([2, 3, 32])
+
+    ==== output ====
+    torch.Size([2, 3, 50])
+    x: torch.Size([2, 5])
+    y: torch.Size([2, 3])
+    out: torch.Size([2, 3, 50])
+    argmax: tensor([[13, 16, 48],
+            [42, 13, 16]])
     """
     # PositionEncoding(512,100)
     att = Transformer(
-        src_vocab=100, tgt_vocab=50, pad_idx=0, d_model=8, n_layer=1, n_head=2, 
-        d_ff=4, dropout=0.1)
+        src_vocab=100, tgt_vocab=50, pad_idx=0, d_model=32, n_layer=1, n_head=2, 
+        d_ff=32, dropout=0.1)
     # batch, seq
-    x = torch.randint(0, 100, (4, 5))
-    y = torch.randint(0, 50, (4, 1))
+    print("batch, seq: (2, 5), (2, 3)")
+    x = torch.randint(0, 100, (2, 5))
+    y = torch.randint(0, 50, (2, 3))
     out = att(x, y)
     print(out.size())
     print(f"x: {x.size()}")
